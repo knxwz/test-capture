@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Test carte de capture</title>
+<style>
+  body{font-family:-apple-system,system-ui,sans-serif;margin:0;padding:16px;background:#111;color:#eee}
+  h1{font-size:20px;margin:0 0 12px}
+  button{font-size:17px;padding:12px 16px;margin:4px 4px 4px 0;border-radius:10px;border:0;background:#2a7fff;color:#fff}
+  button.sec{background:#333}
+  video{width:100%;background:#000;border-radius:10px;margin-top:12px}
+  pre{background:#1c1c1c;padding:10px;border-radius:8px;white-space:pre-wrap;word-break:break-word;font-size:13px}
+</style>
+</head>
+<body>
+<h1>Test carte de capture (iPhone)</h1>
+<p>1. Branche la carte HDMI sur le port USB-C avec une source allumée. 2. Appuie sur « Lister les caméras » et accepte l'autorisation caméra.</p>
+<button id="list">Lister les caméras</button>
+<div id="devs"></div>
+<video id="v" autoplay playsinline muted></video>
+<pre id="log">En attente…</pre>
+<script>
+const log = m => { document.getElementById('log').textContent += '\n' + m; };
+const v = document.getElementById('v'), devsDiv = document.getElementById('devs');
+let stream = null;
+
+async function start(deviceId, label) {
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: deviceId ? { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } } : true,
+      audio: false
+    });
+    v.srcObject = stream;
+    const t = stream.getVideoTracks()[0], s = t.getSettings();
+    log('OK « ' + (label || t.label) + ' » : ' + s.width + 'x' + s.height + ' @ ' + s.frameRate + ' fps');
+  } catch (e) {
+    log('ERREUR ' + label + ' : ' + e.name + ' – ' + e.message);
+  }
+}
+
+document.getElementById('list').onclick = async () => {
+  document.getElementById('log').textContent = '';
+  if (!navigator.mediaDevices) { log('mediaDevices indisponible (il faut HTTPS).'); return; }
+  try {
+    const tmp = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+    tmp.getTracks().forEach(t => t.stop());
+  } catch (e) { log('Autorisation caméra refusée : ' + e.name); return; }
+  const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'videoinput');
+  log(devs.length + ' caméra(s) vidéo détectée(s) :');
+  devsDiv.innerHTML = '';
+  devs.forEach((d, i) => {
+    log(' - ' + (d.label || 'sans nom') + '  [' + d.deviceId.slice(0, 8) + '…]');
+    const b = document.createElement('button');
+    b.className = 'sec';
+    b.textContent = d.label || ('Caméra ' + (i + 1));
+    b.onclick = () => start(d.deviceId, d.label);
+    devsDiv.appendChild(b);
+  });
+  log('Appuie sur une caméra pour l’afficher. La carte de capture est celle qui n’est ni « Avant » ni « Arrière ».');
+};
+</script>
+</body>
+</html>
